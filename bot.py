@@ -1,5 +1,6 @@
 import os
 import asyncio
+from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
@@ -9,14 +10,21 @@ load_dotenv()
 
 # Ambil konfigurasi dari environment
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-PUBLIC_CHANNEL_ID = int(os.getenv("PUBLIC_CHANNEL_ID"))
-PRIVATE_CHANNEL_ID = int(os.getenv("PRIVATE_CHANNEL_ID"))
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+PUBLIC_CHANNEL_ID = int(os.getenv("PUBLIC_CHANNEL_ID") or "0")
+PRIVATE_CHANNEL_ID = int(os.getenv("PRIVATE_CHANNEL_ID") or "0")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or ""
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or ""
 TABLE_NAME = os.getenv("TABLE_NAME", "films")
 
 # Inisialisasi client Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+async def ping_task(context: ContextTypes.DEFAULT_TYPE):
+    """Background task yang ping setiap 1 menit untuk menjaga bot tetap aktif"""
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[PING] Bot masih aktif - {current_time}")
+
 
 async def is_member(bot, user_id: int) -> bool:
     try:
@@ -25,14 +33,17 @@ async def is_member(bot, user_id: int) -> bool:
     except Exception:
         return False
 
+
 def supabase_get_by_code(code: str):
     """Ambil record dari supabase berdasarkan code"""
-    res = supabase.table(TABLE_NAME).select("code,file_id").eq("code", code).limit(1).execute()
+    res = supabase.table(TABLE_NAME).select("code,file_id").eq(
+        "code", code).limit(1).execute()
     if res and getattr(res, "data", None):
         rows = res.data
         if rows:
             return rows[0]
     return None
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -42,7 +53,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     code = args[0] if args else None
 
     if not code:
-        await chat.send_message("Gunakan parameter kode. Contoh: /start GOON78")
+        await chat.send_message("Gunakan parameter kode. Contoh: /start GOON78"
+                                )
         return
 
     # Cek apakah user anggota channel publik
@@ -54,9 +66,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             # fallback pakai ID channel (strip -100)
             join_url = f"https://t.me/kuncifilm"  # misal "-1002742502135" -> "2742502135"
-        
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("Join Channel", url=join_url)]])
-        await chat.send_message(f"Silakan join channel publik dulu lalu klik link lagi https://t.me/boibubi_bot?start={code}", reply_markup=kb)
+
+        kb = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Join Channel", url=join_url)]])
+        await chat.send_message(
+            f"Silakan join channel publik dulu lalu klik link lagi https://t.me/boibubi_bot?start={code}",
+            reply_markup=kb)
         return
 
     # Ambil data dari supabase berdasarkan code
@@ -73,18 +88,36 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message_id = int(file_id_value)
     except Exception:
-        await chat.send_message("Nilai file_id di database tidak valid. Harus angka (message_id).")
+        await chat.send_message(
+            "Nilai file_id di database tidak valid. Harus angka (message_id).")
         return
 
     try:
         # Kirim file (copy message) dari channel private ke user
-        await context.bot.copy_message(chat_id=chat.id, from_chat_id=PRIVATE_CHANNEL_ID, message_id=message_id)
+        await context.bot.copy_message(chat_id=chat.id,
+                                       from_chat_id=PRIVATE_CHANNEL_ID,
+                                       message_id=message_id)
     except Exception as e:
-        await chat.send_message("Gagal mengirim file. Pastikan bot admin di private channel dan message_id benar.")
+        await chat.send_message(
+            "Gagal mengirim file. Pastikan bot admin di private channel dan message_id benar."
+        )
         print(f"Error copy_message: {e}")
 
+
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    print("Bot running")
-    app.run_polling()
+    while True:
+        try:
+            app = ApplicationBuilder().token(BOT_TOKEN).build()
+            app.add_handler(CommandHandler("start", start))
+
+            # Jalankan background ping task setiap 60 detik (1 menit)
+            job_queue = app.job_queue
+            job_queue.run_repeating(ping_task, interval=60, first=10)
+
+            print("Bot running with ping task every 1 minute")
+            app.run_polling(drop_pending_updates=True)
+        except Exception as e:
+            print(f"Bot error: {e}")
+            print("Restarting bot in 5 seconds...")
+            asyncio.run(asyncio.sleep(5))
+            continue
