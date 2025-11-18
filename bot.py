@@ -145,9 +145,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Kirim pesan gacha setelah file berhasil dikirim
         kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🎰 Gacha!", url=SMARTLINK_URL)]])
+            [[InlineKeyboardButton("Beli", url=SMARTLINK_URL)]])
         await chat.send_message(
-            "Menangkan kesempatan masuk CHANNEL PRIVAT dengan full video 🥵💦🎬 tanpa link!!!\n\n🎰 Kesempatan 1/100 dan hanya ada 100 pemenang!!! \n\n hubungi atmin jika ada masalah @cilokkecil",
+            "Mau nonton tanpa ribet iklan dan dapat video chil 1000+ \n\n langsung order disini👇 \n\n hubungi atmin jika ada masalah @cilokkecil",
             reply_markup=kb)
 
     except Exception as e:
