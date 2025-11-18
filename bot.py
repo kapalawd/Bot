@@ -147,7 +147,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kb = InlineKeyboardMarkup(
             [[InlineKeyboardButton("Beli", url=SMARTLINK_URL)]])
         await chat.send_message(
-            "Mau nonton tanpa ribet iklan dan dapat video chil 1000+ \n\n langsung order disini👇 \n\n hubungi atmin jika ada masalah @cilokkecil",
+            "Mau video chil 1000+ tanpa ribet masuk aja ke channel privat permanen!!!\n\n langsung order disini👇 \n\n hubungi atmin jika ada masalah @cilokkecil",
             reply_markup=kb)
 
     except Exception as e:
